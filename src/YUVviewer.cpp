@@ -205,6 +205,7 @@ YUVviewer::YUVviewer(QWidget *parent) :
     int currentIndex;
 
     ui->setupUi(this);
+    setAcceptDrops(true);
 
     this->setWindowTitle("YUVviewer " + VERSION);
     QRect screen = QGuiApplication::screenAt(this->mapToGlobal(QPoint(this->width()/2,0)))->geometry();
@@ -318,16 +319,21 @@ YUVviewer::YUVviewer(QWidget *parent) :
     QObject::connect(ui->exchange_PushButton, SIGNAL(clicked()), this, SLOT(exchaneSize()));
     QObject::connect(ui->openFile_PushButton, SIGNAL(clicked()), this, SLOT(openFile()));
     QObject::connect(ui->openFolder_PushButton, SIGNAL(clicked()), this, SLOT(openFolder()));
+    QObject::connect(ui->compare_PushButton, SIGNAL(clicked()), this, SLOT(compareFiles()));
     QObject::connect(ui->help_PushButton, SIGNAL(clicked()), this, SLOT(help()));
     QObject::connect(ui->about_PushButton, SIGNAL(clicked()), this, SLOT(about()));
     QObject::connect(ui->aboutQt_PushButton, SIGNAL(clicked()), this, SLOT(aboutQt()));
 
     imgViewer = nullptr;
+    compareViewer = nullptr;
 }
 
 YUVviewer::~YUVviewer() {
     if(imgViewer != nullptr) {
         delete imgViewer;
+    }
+    if(compareViewer != nullptr) {
+        delete compareViewer;
     }
     if(YUVviewerConfigFile != nullptr) {
         delete YUVviewerConfigFile;
@@ -773,6 +779,63 @@ void YUVviewer::openFolder() {
             }
         }
     }
+}
+
+void YUVviewer::dragEnterEvent(QDragEnterEvent *event) {
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+    }
+}
+
+void YUVviewer::dropEvent(QDropEvent *event) {
+    if (!updateConfig()) return;
+
+    QStringList filelist;
+    QString folderPath;
+
+    foreach (const QUrl &url, event->mimeData()->urls()) {
+        if (!url.isLocalFile()) continue;
+        QString path = url.toLocalFile();
+        QFileInfo fi(path);
+        if (fi.isDir()) {
+            // 拖入文件夹：扫描文件
+            QDir dir(path);
+            QStringList filters = {"*.yuv", "*.data", "*.raw", "*.png"};
+            QStringList files = dir.entryList(filters, QDir::Files | QDir::Readable, QDir::Name);
+            if (!files.isEmpty()) {
+                folderPath = path;
+                foreach (const QString &f, files) {
+                    filelist.append(QDir::toNativeSeparators(path + '/' + f));
+                }
+            }
+        } else {
+            QString suffix = fi.suffix().toLower();
+            if (suffix == "yuv" || suffix == "data" || suffix == "raw" || suffix == "png") {
+                filelist.append(fi.absoluteFilePath());
+                if (folderPath.isEmpty()) folderPath = fi.absolutePath();
+            }
+        }
+    }
+
+    if (!filelist.isEmpty()) {
+        imgView(filelist, folderPath);
+    }
+
+    event->acceptProposedAction();
+}
+
+void YUVviewer::compareFiles() {
+    if (compareViewer != nullptr) {
+        delete compareViewer;
+        compareViewer = nullptr;
+    }
+    compareViewer = new CompareViewer(this);
+    QRect screen = QGuiApplication::screenAt(this->mapToGlobal(QPoint(this->width()/2,0)))->geometry();
+    compareViewer->resize(screen.width() * 3 / 4, screen.height() * 3 / 4);
+    compareViewer->move((screen.width() - compareViewer->width()) / 2,
+                        (screen.height() - compareViewer->height()) / 2);
+    this->hide();
+    compareViewer->show();
 }
 
 void YUVviewer::help() {

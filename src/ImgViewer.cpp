@@ -134,11 +134,11 @@ bool ImgViewer::setFileList(QStringList filenamelist,QString YUVFormat, int W, i
         this->currentImg_RGB_list = this->img_list.at(0);
         this->currentImg = this->currentImg_RGB_list.at(0);
         this->setWindowTitle(this->filelist.at(0)+"-0");
-        this->scaled_img = this->currentImg->scaled(this->size());
-        if(this->flipRGB) {
-            this->scaled_img = this->scaled_img.rgbSwapped();
-        }
+        this->rotation = 0;
+        this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+        applyRotation();
         this->point = QPoint(0, 0);
+        emit currentFileChanged(this->filelist.at(0), 0);
         return true;
     }
 }
@@ -159,12 +159,12 @@ void ImgViewer::reciveimgdata(QList<QImage*> img_RGB_list,QString filename) {
             this->currentImg_RGB_list = this->img_list.at(0);
             this->currentImg = this->currentImg_RGB_list.at(0);
             this->setWindowTitle(this->filelist.at(0)+"-0");
-            this->scaled_img = this->currentImg->scaled(this->size());
-            if(this->flipRGB) {
-                this->scaled_img = this->scaled_img.rgbSwapped();
-            }
+            this->rotation = 0;
+            this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+            applyRotation();
             this->point = QPoint(0, 0);
             this->repaint();
+            emit currentFileChanged(this->filelist.at(0), 0);
         }
     }
 
@@ -195,6 +195,75 @@ bool ImgViewer::setFileList_multithreading(QStringList filenamelist,QString YUVF
     }
     this->decode_thread[0]->start();
     return true;
+}
+
+void ImgViewer::syncFrom(QPoint newPoint, QImage newScaledImg) {
+    this->point = newPoint;
+    this->scaled_img = newScaledImg;
+    this->repaint();
+}
+
+void ImgViewer::syncPosition(ImgViewer *other) {
+    if (!other || this->img_list.empty() || other->img_list.empty()) return;
+    // 将当前面板的显示位置同步到 other 面板
+    int src_file_idx = other->img_list.indexOf(other->currentImg_RGB_list);
+    int src_frame_idx = other->currentImg_RGB_list.indexOf(other->currentImg);
+    // 限制在当前面板的有效范围内
+    int dst_file_idx = qMin(src_file_idx, this->img_list.count() - 1);
+    int dst_frame_idx = qMin(src_frame_idx, this->img_list[dst_file_idx].count() - 1);
+    this->currentImg_RGB_list = this->img_list[dst_file_idx];
+    this->currentImg = this->currentImg_RGB_list[dst_frame_idx];
+    this->point = QPoint(0, 0);
+    this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+    applyRotation();
+    this->repaint();
+}
+
+QString ImgViewer::getCurrentFileName() const {
+    if (this->img_list.empty() || !this->currentImg) return QString();
+    int list_index = this->img_list.indexOf(this->currentImg_RGB_list);
+    if (list_index < 0 || list_index >= this->filelist.size()) return QString();
+    return this->filelist[list_index];
+}
+
+int ImgViewer::getCurrentFrameIndex() const {
+    if (!this->currentImg_RGB_list.isEmpty() && this->currentImg) {
+        return this->currentImg_RGB_list.indexOf(this->currentImg);
+    }
+    return 0;
+}
+
+void ImgViewer::rotateLeft() {
+    if (this->img_list.empty()) return;
+    this->rotation = (this->rotation + 270) % 360;
+    fitToWindow();
+    emit viewChanged(this->point, this->scaled_img);
+}
+
+void ImgViewer::rotateRight() {
+    if (this->img_list.empty()) return;
+    this->rotation = (this->rotation + 90) % 360;
+    fitToWindow();
+    emit viewChanged(this->point, this->scaled_img);
+}
+
+void ImgViewer::applyRotation() {
+    if (this->rotation != 0) {
+        QTransform rot;
+        rot.rotate(this->rotation);
+        this->scaled_img = this->scaled_img.transformed(rot);
+    }
+    if (this->flipRGB) {
+        this->scaled_img = this->scaled_img.rgbSwapped();
+    }
+}
+
+void ImgViewer::fitToWindow() {
+    if (this->img_list.empty() || !this->currentImg) return;
+    this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+    applyRotation();
+    this->point = QPoint(0, 0);
+    this->repaint();
 }
 
 void ImgViewer::closeEvent(QCloseEvent *event) {
@@ -257,9 +326,16 @@ void ImgViewer::mouseMoveEvent(QMouseEvent *event) {
             this->point = this->point + this->endPos;
             this->startPos = event->pos();
             this->update();
+            emit viewChanged(this->point, this->scaled_img);
         } else {
             if(current_color != currentMousePosColor || current_isMouseInImg != isMouseInImg) {
                 this->update();
+                if(isMouseInImg) {
+                    int r = qRed(currentMousePosColor);
+                    int g = qGreen(currentMousePosColor);
+                    int b = qBlue(currentMousePosColor);
+                    emit pixelInfoChanged(currentMousePos.x(), currentMousePos.y(), r, g, b);
+                }
             }
         }
     }
@@ -281,18 +357,16 @@ void ImgViewer::mouseReleaseEvent(QMouseEvent *event) {
             this->left_click = false;
         } else if(event->button() == Qt::RightButton) {
             this->point = QPoint(0, 0);
-            this->scaled_img = this->currentImg->scaled(this->size());
-            if(this->flipRGB) {
-                this->scaled_img = this->scaled_img.rgbSwapped();
-            }
+            this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+            applyRotation();
             this->repaint();
+            emit viewChanged(this->point, this->scaled_img);
         } else if(event->button() == Qt::MiddleButton) {
             this->scaled_img = this->currentImg->scaled(this->currentImg->size().width(),this->currentImg->size().height());
-            if(this->flipRGB) {
-                this->scaled_img = this->scaled_img.rgbSwapped();
-            }
+            applyRotation();
             this->point = QPoint(0, 0);
             this->repaint();
+            emit viewChanged(this->point, this->scaled_img);
         }
     }
 }
@@ -310,10 +384,8 @@ void ImgViewer::mouseDoubleClickEvent(QMouseEvent *event) {
         } else if(event->button() == Qt::RightButton) {
             this->flipRGB = this->flipRGB ? false : true;
             this->point = QPoint(0, 0);
-            this->scaled_img = this->currentImg->scaled(this->size());
-            if(this->flipRGB) {
-                this->scaled_img = this->scaled_img.rgbSwapped();
-            }
+            this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+            applyRotation();
             this->repaint();
         }
     }
@@ -336,9 +408,7 @@ void ImgViewer::wheelEvent(QWheelEvent *event) {
 
                 this->scaled_img = this->currentImg->scaled(
                     this->scaled_img.width() + setpsize_x,this->scaled_img.height() + setpsize_y);
-                if(this->flipRGB) {
-                    this->scaled_img = this->scaled_img.rgbSwapped();
-                }
+                applyRotation();
                 float new_w = event_x -
                     (this->scaled_img.width() * (event_x - this->point.x())) / (this->scaled_img.width() - setpsize_x);
                 float new_h = event_y -
@@ -355,9 +425,7 @@ void ImgViewer::wheelEvent(QWheelEvent *event) {
 
                 this->scaled_img = this->currentImg->scaled(
                     this->scaled_img.width() - setpsize_x,this->scaled_img.height() - setpsize_y);
-                if(this->flipRGB) {
-                    this->scaled_img = this->scaled_img.rgbSwapped();
-                }
+                applyRotation();
                 float new_w = event_x -
                     (this->scaled_img.width() * (event_x - this->point.x())) / (this->scaled_img.width() + setpsize_x);
                 float new_h = event_y -
@@ -366,15 +434,14 @@ void ImgViewer::wheelEvent(QWheelEvent *event) {
                 this->repaint();
             }
         }
+        emit viewChanged(this->point, this->scaled_img);
     }
 }
 
 void ImgViewer::resizeEvent(QResizeEvent *event) {
     if (!this->img_list.empty()) {
-        this->scaled_img = this->currentImg->scaled(this->size());
-        if(this->flipRGB) {
-            this->scaled_img = this->scaled_img.rgbSwapped();
-        }
+        this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+        applyRotation();
         this->point = QPoint(0, 0);
         this->update();
     }
@@ -411,11 +478,10 @@ void ImgViewer::previousImg() {
         this->currentImg_RGB_list = this->img_list[list_index];
         this->currentImg = this->currentImg_RGB_list[img_index];
         this->point = QPoint(0, 0);
-        this->scaled_img = this->currentImg->scaled(this->size());
-        if(this->flipRGB) {
-            this->scaled_img = this->scaled_img.rgbSwapped();
-        }
+        this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+        applyRotation();
         this->repaint();
+        emit currentFileChanged(this->filelist[list_index], img_index);
     }
 }
 
@@ -449,10 +515,9 @@ void ImgViewer::nextImg() {
         this->currentImg_RGB_list = this->img_list[list_index];
         this->currentImg = this->currentImg_RGB_list[img_index];
         this->point = QPoint(0, 0);
-        this->scaled_img = this->currentImg->scaled(this->size());
-        if(this->flipRGB) {
-            this->scaled_img = this->scaled_img.rgbSwapped();
-        }
+        this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+        applyRotation();
         this->repaint();
+        emit currentFileChanged(this->filelist[list_index], img_index);
     }
 }

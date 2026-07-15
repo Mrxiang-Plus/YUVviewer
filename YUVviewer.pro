@@ -16,9 +16,9 @@ YUVVIEWER_VERSION="$$cat(./version.txt)"
 
 ###############################################################################
 
-!versionAtLeast(QT_VERSION, 6.5.0) {
+!versionAtLeast(QT_VERSION, 5.15.0) {
     message("Cannot use Qt $$QT_VERSION")
-    error("Use Qt 6.5.0 or newer")
+    error("Use Qt 5.15.0 or newer")
 }
 
 # 定义需要的Qt组件
@@ -43,7 +43,8 @@ SOURCES += \
         src/ImgViewer.cpp \
         src/ImgExport.cpp \
         src/YUVdecoder.cpp \
-        src/configFile.cpp
+        src/configFile.cpp \
+        src/CompareViewer.cpp
 
 HEADERS += \
         src/YUVviewer.h \
@@ -51,7 +52,8 @@ HEADERS += \
         src/ImgExport.h \
         src/YUVdecoder.h \
         src/filedialog.h \
-        src/configFile.h
+        src/configFile.h \
+        src/CompareViewer.h
 
 FORMS += \
         src/UI_YUVviewer.ui \
@@ -114,6 +116,7 @@ unix:!macx:{
     LIBS += -L $${OPENCV_DIR}/lib/ -lopencv_imgproc
     LIBS += -L $${OPENCV_DIR}/lib/ -lopencv_imgcodecs
     LIBS += -L $${OPENCV_DIR}/lib/ -lopencv_core
+    LIBS += -L/home/mi/snap/anaconda3/lib -lstdc++
 
     build_info.commands = $$quote("cd $$PWD && ./tools/generate_info.sh > build_info.inc")
 }

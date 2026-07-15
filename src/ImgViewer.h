@@ -73,11 +73,26 @@ public:
     ~ImgViewer();
     bool setFileList(QStringList filelist,QString YUVFormat, int W, int H, int startframe, int totalframe);
     bool setFileList_multithreading(QStringList filenamelist, QString YUVFormat, int W, int H, int startframe, int totalframe);
+    QPoint getPoint() const { return point; }
+    QImage getScaledImg() const { return scaled_img; }
+    void syncFrom(QPoint newPoint, QImage newScaledImg);
+    void syncPosition(ImgViewer *other);
+    void previousImg();
+    void nextImg();
+    void rotateLeft();
+    void rotateRight();
+    void fitToWindow();
+
+    QString getCurrentFileName() const;
+    int getCurrentFrameIndex() const;
+
+signals:
+    void viewChanged(QPoint point, QImage scaledImg);
+    void pixelInfoChanged(int x, int y, int r, int g, int b);
+    void currentFileChanged(const QString &filename, int frameIndex);
 
 private slots:
     void reciveimgdata(QList<QImage *> img_RGB_list, QString filename);
-    void previousImg();
-    void nextImg();
 
 protected:
     void closeEvent(QCloseEvent *event);
@@ -108,6 +123,8 @@ private:
     QPoint startPos;
     QPoint endPos;
     bool flipRGB = false;
+    int rotation = 0;  // 0, 90, 180, 270
+    void applyRotation();
     static void image_cleanup(cv::Mat* ptr);
     QRgb currentMousePosColor;
     QPoint currentMousePos;

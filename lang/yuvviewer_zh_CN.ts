@@ -107,6 +107,10 @@
         <translation>关于Qt</translation>
     </message>
     <message>
+        <source>Compare</source>
+        <translation>对比</translation>
+    </message>
+    <message>
         <location filename="../src/YUVviewer.cpp" line="712"/>
         <source>Open File</source>
         <translation>打开文件</translation>
@@ -141,6 +145,93 @@
         <location filename="../src/YUVviewer.cpp" line="761"/>
         <source>&lt;p&gt;Version&lt;/p&gt;&lt;p&gt;&amp;nbsp;%1&lt;/p&gt;&lt;p&gt;Commit&lt;/p&gt;&lt;p&gt;&amp;nbsp;%2&lt;/p&gt;&lt;p&gt;Author&lt;/p&gt;&lt;p&gt;&amp;nbsp;qiaoqm@aliyun.com&lt;/p&gt;&lt;p&gt;&amp;nbsp;wenqing.li@aliyun.com&lt;/p&gt;&lt;p&gt;Website&lt;/p&gt;&lt;p&gt;&amp;nbsp;&lt;a href=&apos;https://github.com/QQxiaoming/YUVviewer&apos;&gt;https://github.com/QQxiaoming&lt;/p&gt;&lt;p&gt;&amp;nbsp;&lt;a href=&apos;https://gitee.com/QQxiaoming/YUVviewer&apos;&gt;https://gitee.com/QQxiaoming&lt;/a&gt;&lt;/p&gt;</source>
         <translation>&lt;p&gt;版本&lt;/p&gt;&lt;p&gt;&amp;nbsp;%1&lt;/p&gt;&lt;p&gt;提交&lt;/p&gt;&lt;p&gt;&amp;nbsp;%2&lt;/p&gt;&lt;p&gt;作者&lt;/p&gt;&lt;p&gt;&amp;nbsp;qiaoqm@aliyun.com&lt;/p&gt;&lt;p&gt;主页&lt;/p&gt;&lt;p&gt;&amp;nbsp;&lt;a href=&apos;https://github.com/QQxiaoming/YUVviewer&apos;&gt;https://github.com/QQxiaoming&lt;/p&gt;&lt;p&gt;&amp;nbsp;&lt;a href=&apos;https://gitee.com/QQxiaoming/YUVviewer&apos;&gt;https://gitee.com/QQxiaoming&lt;/a&gt;&lt;/p&gt;</translation>
+    </message>
+</context>
+<context>
+    <name>CompareViewer</name>
+    <message>
+        <source>Image Compare</source>
+        <translation>图像对比</translation>
+    </message>
+    <message>
+        <source>Sync Zoom/Pan</source>
+        <translation>同步缩放/平移</translation>
+    </message>
+    <message>
+        <source>Sync Frame</source>
+        <translation>同步帧</translation>
+    </message>
+    <message>
+        <source>&lt; Previous Frame</source>
+        <translation>&lt; 上一帧</translation>
+    </message>
+    <message>
+        <source>Next Frame &gt;</source>
+        <translation>下一帧 &gt;</translation>
+    </message>
+    <message>
+        <source>Parameters</source>
+        <translation>参数</translation>
+    </message>
+    <message>
+        <source>Format:</source>
+        <translation>格式：</translation>
+    </message>
+    <message>
+        <source>Width:</source>
+        <translation>宽度：</translation>
+    </message>
+    <message>
+        <source>Height:</source>
+        <translation>高度：</translation>
+    </message>
+    <message>
+        <source>Start:</source>
+        <translation>起始帧：</translation>
+    </message>
+    <message>
+        <source>End:</source>
+        <translation>结束帧：</translation>
+    </message>
+    <message>
+        <source>Open File</source>
+        <translation>打开文件</translation>
+    </message>
+    <message>
+        <source>Click 'Open File' or drag files here</source>
+        <translation>点击"打开文件"或将文件拖放到此处</translation>
+    </message>
+    <message>
+        <source>Unsupported format: %1</source>
+        <translation>不支持的格式：%1</translation>
+    </message>
+    <message>
+        <source>Rotate Left</source>
+        <translation>左旋转</translation>
+    </message>
+    <message>
+        <source>Rotate Right</source>
+        <translation>右旋转</translation>
+    </message>
+    <message>
+        <source>Fit Window</source>
+        <translation>适应窗口</translation>
+    </message>
+    <message>
+        <source>Open Folder</source>
+        <translation>打开文件夹</translation>
+    </message>
+    <message>
+        <source>Load</source>
+        <translation>加载</translation>
+    </message>
+    <message>
+        <source>Frame</source>
+        <translation>帧</translation>
+    </message>
+    <message>
+        <source>%1 file(s) loaded</source>
+        <translation>已加载 %1 个文件</translation>
     </message>
 </context>
 </TS>

@@ -535,6 +535,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="compare_PushButton">
+          <property name="text">
+           <string>Compare</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="help_PushButton">
           <property name="text">
            <string>Help</string>

@@ -22,7 +22,11 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
 #include "ImgViewer.h"
+#include "CompareViewer.h"
 #include "configFile.h"
 
 namespace Ui {
@@ -38,6 +42,8 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event);
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private slots:
     void changeFormat(const QString &text);
@@ -54,6 +60,7 @@ private slots:
     void help();
     void about();
     void aboutQt();
+    void compareFiles();
 
 private:
     struct UICodePoint
@@ -72,6 +79,7 @@ private:
     Ui::YUVviewer *ui;
     ConfigFile *YUVviewerConfigFile;
     ImgViewer *imgViewer;
+    CompareViewer *compareViewer;
     static const QList<QPair<QString, QStringList>> frameSizeTypeDict;
     static const QList<QPair<QString, QPair<QString, QList<YUVviewer::UICodePoint>>>> YUVFormat_pattern;
 };
