@@ -38,6 +38,7 @@ public:
     static QList<cv::Mat*> i420(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> nv21(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> nv12(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
+    static QList<cv::Mat*> p010(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> yuy2(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> yvyu(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> uyvy(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
@@ -47,6 +48,7 @@ public:
     static QList<cv::Mat*> bgr565_little_endian(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> bgr565_big_endian(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> rgb888(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
+    static QList<cv::Mat*> y8(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> bayer(const QString &yuvfilename,int W, int H, int startframe, int totalframe,int code,int bit,BayerFormat type);
     static QList<cv::Mat*> png(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QMap<QString, yuvdecoder_t> yuvdecoder_map;

@@ -41,6 +41,7 @@ QMap<QString, ImageDecoder::yuvdecoder_t> ImageDecoder::yuvdecoder_map = {
     {"YU12/I420",       ImageDecoder::i420},
     {"NV21",            ImageDecoder::nv21},
     {"NV12",            ImageDecoder::nv12},
+    {"P010",            ImageDecoder::p010},
     {"YUY2/YUYV",       ImageDecoder::yuy2},
     {"YVYU",            ImageDecoder::yvyu},
     {"UYVY",            ImageDecoder::uyvy},
@@ -50,6 +51,7 @@ QMap<QString, ImageDecoder::yuvdecoder_t> ImageDecoder::yuvdecoder_map = {
     {"BGR565_L",        ImageDecoder::bgr565_little_endian},
     {"BGR565_B",        ImageDecoder::bgr565_big_endian},
     {"RGB888",          ImageDecoder::rgb888},
+    {"Y8",              ImageDecoder::y8},
     #define BAYER_FUNC(code,bit,type) [](const QString &yuvfilename,int W, int H, int startframe, int totalframe) -> QList<cv::Mat*> { \
                                     return ImageDecoder::bayer(yuvfilename,W,H,startframe,totalframe,code,bit,type);}
     {"BayerBG",                 BAYER_FUNC(cv::COLOR_BayerBG2RGB,8,ImageDecoder::CSI)},
@@ -166,6 +168,30 @@ QList<cv::Mat*> ImageDecoder::nv12(const QString &yuvfilename,int W, int H, int 
         yuvImg.create(H*3/2, W, CV_8UC1);
         SAFE_READ(out, yuvImg.data, W*H*3/2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_NV21); // NV12
+        totalframe--;
+        rgbImglist.append(rgbImg);
+    }
+
+cleanup:
+    file.close();
+    return rgbImglist;
+}
+
+QList<cv::Mat*> ImageDecoder::p010(const QString &yuvfilename,int W, int H, int startframe, int totalframe) {
+    QList<cv::Mat*> rgbImglist;
+    cv::Mat yuvImg16;
+    QFile file(yuvfilename);
+    file.open(QFile::ReadOnly);
+    file.seek(startframe*W*H*3);
+    QDataStream out(&file);
+
+    while((!out.atEnd()) && (totalframe != 0)) {
+        cv::Mat *rgbImg = new cv::Mat;
+        yuvImg16.create(H*3/2, W, CV_16UC1);
+        SAFE_READ(out, yuvImg16.data, W*H*3);
+        cv::Mat yuvImg8;
+        yuvImg16.convertTo(yuvImg8, CV_8UC1, 1.0/256.0);
+        cvtColor(yuvImg8, *rgbImg, cv::COLOR_YUV2RGB_NV21);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
@@ -378,6 +404,28 @@ QList<cv::Mat*> ImageDecoder::rgb888(const QString &yuvfilename,int W, int H, in
         yuvImg.create(H, W, CV_8UC3);
         SAFE_READ(out, yuvImg.data, W*H*3);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_BGR2RGB);
+        totalframe--;
+        rgbImglist.append(rgbImg);
+    }
+
+cleanup:
+    file.close();
+    return rgbImglist;
+}
+
+QList<cv::Mat*> ImageDecoder::y8(const QString &yuvfilename,int W, int H, int startframe, int totalframe) {
+    QList<cv::Mat*> rgbImglist;
+    cv::Mat grayImg;
+    QFile file(yuvfilename);
+    file.open(QFile::ReadOnly);
+    file.seek(startframe*W*H);
+    QDataStream out(&file);
+
+    while((!out.atEnd()) && (totalframe != 0)) {
+        cv::Mat *rgbImg = new cv::Mat;
+        grayImg.create(H, W, CV_8UC1);
+        SAFE_READ(out, grayImg.data, W*H);
+        cvtColor(grayImg, *rgbImg, cv::COLOR_GRAY2RGB);
         totalframe--;
         rgbImglist.append(rgbImg);
     }

@@ -132,6 +132,7 @@ const QList<QPair<QString, QPair<QString, QList<YUVviewer::UICodePoint>>>> YUVvi
     {"BGR565_L",                {"RGB", {UI_GR35,UI_BG53}}},
     {"BGR565_B",                {"RGB", {UI_BG53,UI_GR35}}},
     {"RGB888",                  {"RGB", {UI_R,UI_G,UI_B}}},
+    {"Y8",                      {"YUV", {UI_Y}}},
     {"BayerBG",                 {"RGB", {UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,
                                          UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R,UI_G,UI_R}}},
     {"BayerGB",                 {"RGB", {UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,UI_G,UI_B,
