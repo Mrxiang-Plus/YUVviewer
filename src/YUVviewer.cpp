@@ -798,7 +798,9 @@ bool YUVviewer::imgView(QStringList openfile_list, const QString &folderpath) {
         delete imgViewer;
         imgViewer = nullptr;
     }
-    imgViewer = new ImgViewer(folderpath,nullptr,this);
+    int frameRate = ui->frameRate_ComboBox->currentText().toInt();
+    if (frameRate <= 0) frameRate = 30;
+    imgViewer = new ImgViewer(folderpath,nullptr,this,frameRate);
     int startFrame = ui->startFrame_LineEdit->text().toInt();
     int endFrame = ui->endFrame_LineEdit->text().toInt();
     int frameSize_Width = ui->frameSize_Width_LineEdit->text().toInt();

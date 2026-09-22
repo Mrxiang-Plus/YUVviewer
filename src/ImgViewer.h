@@ -25,11 +25,14 @@
 #include <QString>
 #include <QImage>
 #include <QPainter>
-#include <QCloseEvent> 
-#include <QPaintEvent> 
-#include <QMouseEvent> 
-#include <QWheelEvent> 
+#include <QCloseEvent>
+#include <QPaintEvent>
+#include <QMouseEvent>
+#include <QWheelEvent>
 #include <QResizeEvent>
+#include <QKeyEvent>
+#include <QTimer>
+#include <QSlider>
 #include "ImgExport.h"
 #include "YUVdecoder.h"
 
@@ -69,7 +72,7 @@ class ImgViewer : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ImgViewer(const QString &folderpath,QWidget *parent = nullptr,QWidget *parentWindow = nullptr);
+    explicit ImgViewer(const QString &folderpath,QWidget *parent = nullptr,QWidget *parentWindow = nullptr, int frameRate = 30);
     ~ImgViewer();
     bool setFileList(QStringList filelist,QString YUVFormat, int W, int H, int startframe, int totalframe);
     bool setFileList_multithreading(QStringList filenamelist, QString YUVFormat, int W, int H, int startframe, int totalframe);
@@ -77,24 +80,33 @@ public:
     QImage getScaledImg() const { return scaled_img; }
     void syncFrom(QPoint newPoint, QImage newScaledImg);
     void syncPosition(ImgViewer *other);
-    void previousImg();
-    void nextImg();
     void rotateLeft();
     void rotateRight();
     void fitToWindow();
 
     QString getCurrentFileName() const;
     int getCurrentFrameIndex() const;
+    int getTotalFrameCount() const;
+    int getCurrentGlobalIndex() const;
+    void goToGlobalIndex(int globalIndex);
 
 signals:
     void viewChanged(QPoint point, QImage scaledImg);
     void pixelInfoChanged(int x, int y, int r, int g, int b);
     void currentFileChanged(const QString &filename, int frameIndex);
 
+public slots:
+    void previousImg();
+    void nextImg();
+    void togglePlay();
+
 private slots:
     void reciveimgdata(QList<QImage *> img_RGB_list, QString filename);
+    void onPlayTimer();
+    void onSliderChanged(int value);
 
 protected:
+    void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event);
     void paintEvent(QPaintEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
@@ -129,6 +141,12 @@ private:
     QRgb currentMousePosColor;
     QPoint currentMousePos;
     bool isMouseInImg = false;
+    QTimer *playTimer;
+    int frameRate;
+    bool isPlaying = false;
+    void updatePlayButton();
+    void updateSlider();
+    void updateFrameInfo();
 };
 
 #endif // IMGVIEWER_H

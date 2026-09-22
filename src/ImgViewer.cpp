@@ -73,20 +73,37 @@ void YUVDecodeThread::image_cleanup(cv::Mat* ptr) {
     delete ptr;
 }
 
-ImgViewer::ImgViewer(const QString &folderpath, QWidget *parent,QWidget *parentWindow) :
+ImgViewer::ImgViewer(const QString &folderpath, QWidget *parent,QWidget *parentWindow, int frameRate) :
     QWidget(parent),
     ui(new Ui::ImgViewerWindow) {
     ui->setupUi(this);
     qRegisterMetaType<QList<QImage*>>("QList<QImage*>");
     this->parentWindow = parentWindow;
     this->folderpath = folderpath;
+    this->frameRate = frameRate;
     imgExportWindow = new ImgExport(this);
     setWindowTitle("loading file, please wait ....");
     ui->left_PushButton->setFlat(true);
     ui->right_PushButton->setFlat(true);
+    ui->left_PushButton->setFocusPolicy(Qt::NoFocus);
+    ui->right_PushButton->setFocusPolicy(Qt::NoFocus);
+    ui->play_PushButton->setFocusPolicy(Qt::NoFocus);
+    ui->progress_Slider->setFocusPolicy(Qt::NoFocus);
     setMouseTracking(true);
+    setFocusPolicy(Qt::StrongFocus);
     QObject::connect(ui->left_PushButton, SIGNAL(clicked()), this, SLOT(previousImg()));
     QObject::connect(ui->right_PushButton, SIGNAL(clicked()), this, SLOT(nextImg()));
+    QObject::connect(ui->play_PushButton, SIGNAL(clicked()), this, SLOT(togglePlay()));
+    QObject::connect(ui->progress_Slider, SIGNAL(valueChanged(int)), this, SLOT(onSliderChanged(int)));
+
+    playTimer = new QTimer(this);
+    QObject::connect(playTimer, SIGNAL(timeout()), this, SLOT(onPlayTimer()));
+
+    ui->playbackBar->setStyleSheet("QWidget#playbackBar { background-color: rgba(0, 0, 0, 128); }"
+                                   "QLabel { color: white; }"
+                                   "QPushButton { color: white; }");
+    ui->playbackBar->raise();
+
     left_click = false;
 }
 
@@ -138,6 +155,8 @@ bool ImgViewer::setFileList(QStringList filenamelist,QString YUVFormat, int W, i
         this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
         applyRotation();
         this->point = QPoint(0, 0);
+        updateSlider();
+        updateFrameInfo();
         emit currentFileChanged(this->filelist.at(0), 0);
         return true;
     }
@@ -166,6 +185,8 @@ void ImgViewer::reciveimgdata(QList<QImage*> img_RGB_list,QString filename) {
             this->repaint();
             emit currentFileChanged(this->filelist.at(0), 0);
         }
+        updateSlider();
+        updateFrameInfo();
     }
 
     this->decode_thread.pop_front();
@@ -267,6 +288,9 @@ void ImgViewer::fitToWindow() {
 }
 
 void ImgViewer::closeEvent(QCloseEvent *event) {
+    if (playTimer->isActive()) {
+        playTimer->stop();
+    }
     this->parentWindow->show();
     event->accept();
     if(!this->img_list.empty()) {
@@ -445,6 +469,8 @@ void ImgViewer::resizeEvent(QResizeEvent *event) {
         this->point = QPoint(0, 0);
         this->update();
     }
+    int barH = ui->playbackBar->sizeHint().height();
+    ui->playbackBar->setGeometry(0, this->height() - barH, this->width(), barH);
     (void)event;
 }
 
@@ -481,6 +507,8 @@ void ImgViewer::previousImg() {
         this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
         applyRotation();
         this->repaint();
+        updateSlider();
+        updateFrameInfo();
         emit currentFileChanged(this->filelist[list_index], img_index);
     }
 }
@@ -518,6 +546,131 @@ void ImgViewer::nextImg() {
         this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
         applyRotation();
         this->repaint();
+        updateSlider();
+        updateFrameInfo();
         emit currentFileChanged(this->filelist[list_index], img_index);
+    }
+}
+
+int ImgViewer::getTotalFrameCount() const {
+    int total = 0;
+    for (const auto &list : this->img_list) {
+        total += list.count();
+    }
+    return total;
+}
+
+int ImgViewer::getCurrentGlobalIndex() const {
+    if (this->img_list.empty()) return 0;
+    int globalIndex = 0;
+    for (int i = 0; i < this->img_list.count(); i++) {
+        if (this->img_list[i] == this->currentImg_RGB_list) {
+            globalIndex += this->currentImg_RGB_list.indexOf(this->currentImg);
+            break;
+        }
+        globalIndex += this->img_list[i].count();
+    }
+    return globalIndex;
+}
+
+void ImgViewer::goToGlobalIndex(int globalIndex) {
+    if (this->img_list.empty()) return;
+    int total = getTotalFrameCount();
+    if (total == 0) return;
+    globalIndex = qBound(0, globalIndex, total - 1);
+
+    int accumulated = 0;
+    for (int i = 0; i < this->img_list.count(); i++) {
+        int count = this->img_list[i].count();
+        if (accumulated + count > globalIndex) {
+            int frameIdx = globalIndex - accumulated;
+            this->currentImg_RGB_list = this->img_list[i];
+            this->currentImg = this->currentImg_RGB_list[frameIdx];
+            setWindowTitle(this->filelist[i] + "-" + QString::number(frameIdx));
+            this->point = QPoint(0, 0);
+            this->scaled_img = this->currentImg->scaled(this->size(), Qt::KeepAspectRatio);
+            applyRotation();
+            this->repaint();
+            emit currentFileChanged(this->filelist[i], frameIdx);
+            return;
+        }
+        accumulated += count;
+    }
+}
+
+void ImgViewer::togglePlay() {
+    if (this->img_list.empty()) return;
+    if (isPlaying) {
+        playTimer->stop();
+        isPlaying = false;
+    } else {
+        playTimer->start(1000 / frameRate);
+        isPlaying = true;
+    }
+    updatePlayButton();
+}
+
+void ImgViewer::onPlayTimer() {
+    if (this->img_list.empty()) return;
+    int list_index = this->img_list.indexOf(this->currentImg_RGB_list);
+    QList<QImage*> imgList = this->img_list[list_index];
+    int img_index = imgList.indexOf(this->currentImg);
+
+    bool atEnd = (list_index == this->img_list.count() - 1) &&
+                 (img_index == imgList.count() - 1);
+    if (atEnd) {
+        playTimer->stop();
+        isPlaying = false;
+        updatePlayButton();
+        return;
+    }
+    nextImg();
+}
+
+void ImgViewer::updatePlayButton() {
+    if (isPlaying) {
+        ui->play_PushButton->setText("⏸");
+    } else {
+        ui->play_PushButton->setText("▶");
+    }
+}
+
+void ImgViewer::updateSlider() {
+    int total = getTotalFrameCount();
+    if (total <= 1) return;
+    ui->progress_Slider->blockSignals(true);
+    ui->progress_Slider->setMaximum(total - 1);
+    ui->progress_Slider->setValue(getCurrentGlobalIndex());
+    ui->progress_Slider->blockSignals(false);
+}
+
+void ImgViewer::updateFrameInfo() {
+    int total = getTotalFrameCount();
+    int current = getCurrentGlobalIndex();
+    ui->frameInfo_Label->setText(QString("%1/%2").arg(current + 1).arg(total));
+}
+
+void ImgViewer::onSliderChanged(int value) {
+    if (this->img_list.empty()) return;
+    goToGlobalIndex(value);
+    updateFrameInfo();
+}
+
+void ImgViewer::keyPressEvent(QKeyEvent *event) {
+    switch (event->key()) {
+    case Qt::Key_Space:
+        togglePlay();
+        break;
+    case Qt::Key_Left:
+        if (isPlaying) togglePlay();
+        previousImg();
+        break;
+    case Qt::Key_Right:
+        if (isPlaying) togglePlay();
+        nextImg();
+        break;
+    default:
+        QWidget::keyPressEvent(event);
+        break;
     }
 }
