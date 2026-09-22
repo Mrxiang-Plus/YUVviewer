@@ -100,7 +100,7 @@ win32:{
     QMAKE_TARGET_DESCRIPTION = "YUVviewer based on Qt $$[QT_VERSION]"
     QMAKE_TARGET_COPYRIGHT = "GNU General Public License v3.0"
 
-    build_info.commands = $$quote("c:/Windows/system32/WindowsPowerShell/v1.0/powershell.exe -ExecutionPolicy Bypass -NoLogo -NoProfile -File \"$$PWD/tools/generate_info.ps1\" > $$PWD/build_info.inc")
+    build_info_gen = c:/Windows/system32/WindowsPowerShell/v1.0/powershell.exe -ExecutionPolicy Bypass -NoLogo -NoProfile -File $$PWD/tools/generate_info.ps1 > $$PWD/build_info.inc
 }
 
 unix:!macx:{
@@ -118,13 +118,13 @@ unix:!macx:{
     LIBS += -L $${OPENCV_DIR}/lib/ -lopencv_core
     LIBS += -L/home/mi/snap/anaconda3/lib -lstdc++
 
-    build_info.commands = $$quote("cd $$PWD && ./tools/generate_info.sh > build_info.inc")
+    build_info_gen = cd $$PWD && ./tools/generate_info.sh > build_info.inc
 }
 
 macx:{
     QMAKE_RPATHDIR=$ORIGIN
     ICON = "img/ico.icns"
-    
+
     INCLUDEPATH += -I $${OPENCV_DIR}/include/opencv4
     DEPENDPATH +=$${OPENCV_DIR}/include/opencv4
 
@@ -135,12 +135,11 @@ macx:{
     LIBS += -L $${OPENCV_DIR}/lib/ -lopencv_imgcodecs
     LIBS += -L $${OPENCV_DIR}/lib/ -lopencv_core
 
-    build_info.commands = $$quote("cd $$PWD && ./tools/generate_info.sh > build_info.inc")
+    build_info_gen = cd $$PWD && ./tools/generate_info.sh > build_info.inc
 }
 
-build_info.target = $$PWD/build_info.inc
-build_info.depends = FORCE
-PRE_TARGETDEPS += $$PWD/build_info.inc
-QMAKE_EXTRA_TARGETS += build_info
+# 在 qmake 阶段生成 build_info.inc，避免并行 make 时重写该文件与编译竞态
+win32:system(cmd /c $$build_info_gen)
+unix:system($$build_info_gen)
 
 ###############################################################################

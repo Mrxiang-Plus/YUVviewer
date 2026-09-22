@@ -282,14 +282,12 @@ void CompareViewer::openFolderB() {
 void CompareViewer::matchFiles() {
     if (loadedFilesA.isEmpty() || loadedFilesB.isEmpty()) return;
 
-    // 构建 basename → fullpath 映射
-    QHash<QString, QString> mapA, mapB;
-    foreach (const QString &f, loadedFilesA) mapA.insertMulti(QFileInfo(f).fileName(), f);
-    foreach (const QString &f, loadedFilesB) mapB.insertMulti(QFileInfo(f).fileName(), f);
+    // 构建 basename 集合
+    QSet<QString> namesA, namesB;
+    foreach (const QString &f, loadedFilesA) namesA.insert(QFileInfo(f).fileName());
+    foreach (const QString &f, loadedFilesB) namesB.insert(QFileInfo(f).fileName());
 
     // 取交集
-    QSet<QString> namesA = QSet<QString>::fromList(mapA.keys());
-    QSet<QString> namesB = QSet<QString>::fromList(mapB.keys());
     QSet<QString> common = namesA.intersect(namesB);
 
     if (common.isEmpty()) return;
