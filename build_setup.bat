@@ -3,12 +3,12 @@
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 :: 定义Qt目录
-set "QT_DIR=C:/Qt/6.5.3/mingw_64/bin"
-set "QT_TOOLS_DIR=C:/Qt/Tools/mingw1120_64/bin"
+set "QT_DIR=C:/ProgramMe/Qt/6.5.3/mingw_64/bin"
+set "QT_TOOLS_DIR=C:/ProgramMe/Qt/Tools/mingw1120_64/bin"
 :: 定义Inno Setup目录
-set "INNO_SETUP_DIR=C:/Users/xiang/AppData/Local/Programs/Inno Setup 6"
+set "INNO_SETUP_DIR=C:/ProgramMe/Inno Setup 6"
 :: 定义opencv目录
-set "OPENCV_DIR=C:/opencv4.12.0/x64/mingw/bin"
+set "OPENCV_DIR=C:/ProgramMe/opencv4.12.0/x64/mingw/bin"
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
