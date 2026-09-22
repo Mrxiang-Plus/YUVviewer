@@ -4,6 +4,9 @@
     <file>../img/right.png</file>
     <file>../img/ico.png</file>
   </qresource>
+  <qresource prefix="/config">
+    <file>dump_formats.json</file>
+  </qresource>
   <qresource prefix="/lang">
     <file>../lang/yuvviewer_zh_CN.qm</file>
     <file>../lang/yuvviewer_ja_JP.qm</file>

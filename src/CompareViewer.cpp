@@ -28,6 +28,9 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QRegularExpression>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include "CompareViewer.h"
 #include "filedialog.h"
 #include "YUVdecoder.h"
@@ -101,6 +104,7 @@ CompareViewer::CompareViewer(QWidget *parentWindow, QWidget *parent) :
     connect(rotateLeftBtn, &QPushButton::clicked, this, &CompareViewer::onRotateLeft);
     connect(rotateRightBtn, &QPushButton::clicked, this, &CompareViewer::onRotateRight);
     connect(fitBtn, &QPushButton::clicked, this, &CompareViewer::onFitWindow);
+    loadDumpFormats();
 }
 
 CompareViewer::~CompareViewer() {
@@ -166,48 +170,71 @@ QWidget* CompareViewer::createPanel(PanelWidgets &pw) {
     return panel;
 }
 
+// ===== 配置加载 =====
+void CompareViewer::loadDumpFormats() {
+    QString configPath = QDir::homePath() + "/.YUVViewer/dump_formats.json";
+    QFile configFile(configPath);
+    if (!configFile.open(QFile::ReadOnly)) return;
+    QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
+    configFile.close();
+    if (!doc.isObject()) return;
+
+    QJsonObject root = doc.object();
+    QJsonObject codes = root["format_codes"].toObject();
+    for (auto it = codes.begin(); it != codes.end(); ++it)
+        formatCodeMap[it.key()] = it.value().toString();
+    QJsonObject exts = root["extension_defaults"].toObject();
+    for (auto it = exts.begin(); it != exts.end(); ++it)
+        extensionDefaultMap[it.key()] = it.value().toString();
+    QJsonArray patterns = root["patterns"].toArray();
+    for (const QJsonValue &v : patterns) {
+        QJsonObject obj = v.toObject();
+        DumpFormatPattern p;
+        p.name = obj["name"].toString();
+        p.regex = QRegularExpression(obj["regex"].toString());
+        p.widthGroup = obj["width_group"].toInt(0);
+        p.heightGroup = obj["height_group"].toInt(0);
+        p.formatGroup = obj["format_group"].toInt(0);
+        if (p.regex.isValid())
+            dumpPatterns.append(p);
+    }
+
+    QJsonArray rules = root["sync_rules"].toArray();
+    for (const QJsonValue &v : rules) {
+        QJsonObject obj = v.toObject();
+        SyncRule r;
+        r.name = obj["name"].toString();
+        r.keyRegex = QRegularExpression(obj["key_regex"].toString());
+        r.keyGroup = obj["key_group"].toInt(1);
+        if (r.keyRegex.isValid())
+            syncRules.append(r);
+    }
+}
+
 // ===== 参数自动解析 =====
 void CompareViewer::parseFilename(const QString &filepath, QString &format, int &W, int &H) {
-    QString name = QFileInfo(filepath).fileName().toLower();
+    QString baseName = QFileInfo(filepath).fileName();
+    QString ext = QFileInfo(filepath).suffix().toLower();
     W = 0;
     H = 0;
     format.clear();
 
-    // 匹配宽高：1920x1080, 1920_1080, W1920H1080, 2528x1080
-    QRegularExpression re(R"((\d{2,5})\s*[xX_]\s*(\d{2,5}))");
-    QRegularExpressionMatch m = re.match(name);
-    if (m.hasMatch()) {
-        W = m.captured(1).toInt();
-        H = m.captured(2).toInt();
-    }
-    if (W == 0) {
-        QRegularExpression re2(R"(w(\d{2,5})[_\s]*h(\d{2,5}))");
-        QRegularExpressionMatch m2 = re2.match(name);
-        if (m2.hasMatch()) {
-            W = m2.captured(1).toInt();
-            H = m2.captured(2).toInt();
+    for (const DumpFormatPattern &p : dumpPatterns) {
+        QRegularExpressionMatch m = p.regex.match(baseName);
+        if (!m.hasMatch()) continue;
+        if (p.widthGroup > 0) W = m.captured(p.widthGroup).toInt();
+        if (p.heightGroup > 0) H = m.captured(p.heightGroup).toInt();
+        if (p.formatGroup > 0) {
+            QString code = m.captured(p.formatGroup);
+            if (formatCodeMap.contains(code))
+                format = formatCodeMap[code];
         }
+        if (W > 0 && H > 0) break;
     }
 
-    // 匹配格式关键词
-    static const QStringList fmtKeywords = {
-        "nv12", "nv21", "yv12", "i420", "yuy2", "yuyv", "yvyu", "uyvy",
-        "rgb888", "rgb565", "bgr565", "yuv444",
-        "raw16", "raw12_csi", "raw12_compact", "raw10_csi", "raw10_compact",
-        "bayerbg", "bayergb", "bayerrg", "bayergr",
-        "png"
-    };
-    foreach (const QString &kw, fmtKeywords) {
-        if (name.contains(kw)) {
-            // 在 formatNames 中查找匹配项（忽略大小写）
-            foreach (const QString &fn, formatNames) {
-                if (fn.toLower() == kw || fn.toLower().contains(kw)) {
-                    format = fn;
-                    break;
-                }
-            }
-            if (!format.isEmpty()) break;
-        }
+    if (W > 0 && H > 0 && format.isEmpty()) {
+        if (extensionDefaultMap.contains(ext))
+            format = extensionDefaultMap[ext];
     }
 }
 
@@ -216,7 +243,7 @@ void CompareViewer::openFolderA() {
     QString dir = FileDialog::getExistingDirectory(this, tr("Open Folder"), "");
     if (dir.isEmpty()) return;
     QDir d(dir);
-    QStringList nameFilters = {"*.yuv", "*.data", "*.raw", "*.png"};
+    QStringList nameFilters = {"*.yuv", "*.data", "*.raw", "*.png", "*.rgb", "*.bmp", "*.jpg"};
     QStringList files = d.entryList(nameFilters, QDir::Files | QDir::Readable, QDir::Name);
     QStringList fullPaths;
     foreach (const QString &f, files) {
@@ -232,7 +259,7 @@ void CompareViewer::openFolderB() {
     QString dir = FileDialog::getExistingDirectory(this, tr("Open Folder"), "");
     if (dir.isEmpty()) return;
     QDir d(dir);
-    QStringList nameFilters = {"*.yuv", "*.data", "*.raw", "*.png"};
+    QStringList nameFilters = {"*.yuv", "*.data", "*.raw", "*.png", "*.rgb", "*.bmp", "*.jpg"};
     QStringList files = d.entryList(nameFilters, QDir::Files | QDir::Readable, QDir::Name);
     QStringList fullPaths;
     foreach (const QString &f, files) {
@@ -382,7 +409,7 @@ void CompareViewer::loadFilesToPanel(int panelIndex, QStringList filelist, bool 
 // ===== 文件打开 =====
 void CompareViewer::openFileA() {
     QStringList files = FileDialog::getOpenFileNames(
-        this, tr("Open File"), "", "files(*.yuv *.data *.raw *.png)");
+        this, tr("Open File"), "", "files(*.yuv *.data *.raw *.png *.rgb *.bmp *.jpg)");
     if (files.isEmpty()) return;
     loadedFilesA = files;
     loadFilesToPanel(0, files);
@@ -390,7 +417,7 @@ void CompareViewer::openFileA() {
 
 void CompareViewer::openFileB() {
     QStringList files = FileDialog::getOpenFileNames(
-        this, tr("Open File"), "", "files(*.yuv *.data *.raw *.png)");
+        this, tr("Open File"), "", "files(*.yuv *.data *.raw *.png *.rgb *.bmp *.jpg)");
     if (files.isEmpty()) return;
     loadedFilesB = files;
     loadFilesToPanel(1, files);
@@ -412,12 +439,13 @@ void CompareViewer::dropEvent(QDropEvent *event) {
             if (fi.isDir()) {
                 // 拖入文件夹：扫描文件
                 QDir d(filepath);
-                QStringList filters = {"*.yuv", "*.data", "*.raw", "*.png"};
+                QStringList filters = {"*.yuv", "*.data", "*.raw", "*.png", "*.rgb", "*.bmp", "*.jpg"};
                 QStringList files = d.entryList(filters, QDir::Files | QDir::Readable, QDir::Name);
                 foreach (const QString &f, files) filelist.append(d.absoluteFilePath(f));
             } else {
                 QString suffix = fi.suffix().toLower();
-                if (suffix == "yuv" || suffix == "data" || suffix == "raw" || suffix == "png") {
+                if (suffix == "yuv" || suffix == "data" || suffix == "raw" || suffix == "png"
+                || suffix == "rgb" || suffix == "bmp" || suffix == "jpg") {
                     filelist.append(filepath);
                 }
             }

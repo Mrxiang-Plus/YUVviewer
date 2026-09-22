@@ -29,6 +29,10 @@
 #include <QXmlStreamReader>
 #include <QTranslator>
 #include <QLibraryInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QRegularExpression>
 #include "filedialog.h"
 #include "YUVviewer.h"
 #include "ui_UI_YUVviewer.h"
@@ -324,6 +328,8 @@ YUVviewer::YUVviewer(QWidget *parent) :
     QObject::connect(ui->help_PushButton, SIGNAL(clicked()), this, SLOT(help()));
     QObject::connect(ui->about_PushButton, SIGNAL(clicked()), this, SLOT(about()));
     QObject::connect(ui->aboutQt_PushButton, SIGNAL(clicked()), this, SLOT(aboutQt()));
+
+    loadDumpFormats();
 
     imgViewer = nullptr;
     compareViewer = nullptr;
@@ -634,6 +640,101 @@ void YUVviewer::exchaneSize() {
     }
 }
 
+void YUVviewer::loadDumpFormats() {
+    QString configPath = QDir::homePath() + "/.YUVViewer/dump_formats.json";
+    QFile configFile(configPath);
+
+    if (!configFile.exists()) {
+        QFile defaultFile(":/config/dump_formats.json");
+        if (defaultFile.open(QFile::ReadOnly)) {
+            if (configFile.open(QFile::WriteOnly)) {
+                configFile.write(defaultFile.readAll());
+                configFile.close();
+            }
+            defaultFile.close();
+        }
+    }
+
+    if (!configFile.open(QFile::ReadOnly)) return;
+    QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
+    configFile.close();
+    if (!doc.isObject()) return;
+
+    QJsonObject root = doc.object();
+
+    QJsonObject codes = root["format_codes"].toObject();
+    for (auto it = codes.begin(); it != codes.end(); ++it)
+        formatCodeMap[it.key()] = it.value().toString();
+
+    QJsonObject exts = root["extension_defaults"].toObject();
+    for (auto it = exts.begin(); it != exts.end(); ++it)
+        extensionDefaultMap[it.key()] = it.value().toString();
+
+    QJsonArray patterns = root["patterns"].toArray();
+    for (const QJsonValue &v : patterns) {
+        QJsonObject obj = v.toObject();
+        DumpFormatPattern p;
+        p.name = obj["name"].toString();
+        p.regex = QRegularExpression(obj["regex"].toString());
+        p.widthGroup = obj["width_group"].toInt(0);
+        p.heightGroup = obj["height_group"].toInt(0);
+        p.formatGroup = obj["format_group"].toInt(0);
+        if (p.regex.isValid())
+            dumpPatterns.append(p);
+    }
+}
+
+YUVviewer::ParsedFileInfo YUVviewer::parseFilename(const QString &filename) {
+    ParsedFileInfo info;
+    QString baseName = QFileInfo(filename).fileName();
+    QString ext = QFileInfo(filename).suffix().toLower();
+
+    for (const DumpFormatPattern &p : dumpPatterns) {
+        QRegularExpressionMatch m = p.regex.match(baseName);
+        if (!m.hasMatch()) continue;
+
+        if (p.widthGroup > 0)
+            info.width = m.captured(p.widthGroup).toInt();
+        if (p.heightGroup > 0)
+            info.height = m.captured(p.heightGroup).toInt();
+        if (p.formatGroup > 0) {
+            QString code = m.captured(p.formatGroup);
+            if (formatCodeMap.contains(code))
+                info.format = formatCodeMap[code];
+        }
+
+        if (info.width > 0 && info.height > 0) {
+            info.valid = true;
+            break;
+        }
+    }
+
+    if (info.valid && info.format.isEmpty()) {
+        if (extensionDefaultMap.contains(ext))
+            info.format = extensionDefaultMap[ext];
+    }
+
+    return info;
+}
+
+void YUVviewer::autoFillFromFilename(const QString &filepath) {
+    ParsedFileInfo info = parseFilename(filepath);
+    if (!info.valid) return;
+
+    if (!info.format.isEmpty()) {
+        int idx = ui->YUVFormat_ComboBox->findText(info.format);
+        if (idx >= 0)
+            ui->YUVFormat_ComboBox->setCurrentIndex(idx);
+    }
+
+    ui->frameSizeType_Other_RadioButton->setChecked(true);
+    ui->frameSizeType_ComboBox->setEnabled(false);
+    ui->frameSize_Width_LineEdit->setText(QString::number(info.width));
+    ui->frameSize_Width_LineEdit->setFocusPolicy(Qt::StrongFocus);
+    ui->frameSize_Height_LineEdit->setText(QString::number(info.height));
+    ui->frameSize_Height_LineEdit->setFocusPolicy(Qt::StrongFocus);
+}
+
 void YUVviewer::showParaErrMessageBox(void) {
     QMessageBox::critical(this, "Error", "parameter invalid!!", QMessageBox::Ok);
 }
@@ -759,14 +860,15 @@ bool YUVviewer::imgView(QStringList openfile_list, const QString &folderpath) {
 }
 
 void YUVviewer::openFile() {
-    if(updateConfig()) {
-        QString openDir = "";
-        QFileInfo lastPath(YUVviewerConfigFile->config_dict.lastPath);
-        if(lastPath.isDir()) {
-            openDir = YUVviewerConfigFile->config_dict.lastPath;
-        }
-        QStringList openfile_list = FileDialog::getOpenFileNames(this, tr("Open File"), openDir, "files(*.yuv *.data *.raw *.png)");
-        if(openfile_list.size() != 0) {
+    QString openDir = "";
+    QFileInfo lastPath(YUVviewerConfigFile->config_dict.lastPath);
+    if(lastPath.isDir()) {
+        openDir = YUVviewerConfigFile->config_dict.lastPath;
+    }
+    QStringList openfile_list = FileDialog::getOpenFileNames(this, tr("Open File"), openDir, "files(*.yuv *.data *.raw *.png *.rgb *.bmp *.jpg)");
+    if(openfile_list.size() != 0) {
+        autoFillFromFilename(openfile_list[0]);
+        if(updateConfig()) {
             QFileInfo file(openfile_list[0]);
             YUVviewerConfigFile->config_dict.lastPath = file.absolutePath();
             imgView(openfile_list,file.absolutePath());
@@ -775,23 +877,24 @@ void YUVviewer::openFile() {
 }
 
 void YUVviewer::openFolder() {
-    if(updateConfig()) {
-        QString openDir = "";
-        QFileInfo lastPath(YUVviewerConfigFile->config_dict.lastPath);
-        if(lastPath.isDir()) {
-            openDir = YUVviewerConfigFile->config_dict.lastPath;
+    QString openDir = "";
+    QFileInfo lastPath(YUVviewerConfigFile->config_dict.lastPath);
+    if(lastPath.isDir()) {
+        openDir = YUVviewerConfigFile->config_dict.lastPath;
+    }
+    QString openfolder_name = FileDialog::getExistingDirectory(this, tr("Open Folder"), openDir);
+    if (!openfolder_name.isEmpty()) {
+        YUVviewerConfigFile->config_dict.lastPath = openfolder_name;
+        QDir dir(openfolder_name);
+        QStringList nameFilters = {"*.yuv","*.data","*.raw","*.png","*.rgb","*.bmp","*.jpg"};
+        QStringList openfilename_list = dir.entryList(nameFilters, QDir::Files|QDir::Readable, QDir::Name);
+        QStringList openfile_list;
+        foreach (QString file_name, openfilename_list) {
+            openfile_list.append(QDir::toNativeSeparators(openfolder_name + '/' +file_name));
         }
-        QString openfolder_name = FileDialog::getExistingDirectory(this, tr("Open Folder"), openDir);
-        if (!openfolder_name.isEmpty()) {
-            YUVviewerConfigFile->config_dict.lastPath = openfolder_name;
-            QDir dir(openfolder_name);
-            QStringList nameFilters = {"*.yuv","*.data","*.raw","*.png"};
-            QStringList openfilename_list = dir.entryList(nameFilters, QDir::Files|QDir::Readable, QDir::Name);
-            QStringList openfile_list;
-            foreach (QString file_name, openfilename_list) {
-                openfile_list.append(QDir::toNativeSeparators(openfolder_name + '/' +file_name));
-            }
-            if(openfile_list.size() != 0) {
+        if(openfile_list.size() != 0) {
+            autoFillFromFilename(openfile_list[0]);
+            if(updateConfig()) {
                 imgView(openfile_list,openfolder_name);
             }
         }
@@ -805,8 +908,6 @@ void YUVviewer::dragEnterEvent(QDragEnterEvent *event) {
 }
 
 void YUVviewer::dropEvent(QDropEvent *event) {
-    if (!updateConfig()) return;
-
     QStringList filelist;
     QString folderPath;
 
@@ -815,9 +916,8 @@ void YUVviewer::dropEvent(QDropEvent *event) {
         QString path = url.toLocalFile();
         QFileInfo fi(path);
         if (fi.isDir()) {
-            // 拖入文件夹：扫描文件
             QDir dir(path);
-            QStringList filters = {"*.yuv", "*.data", "*.raw", "*.png"};
+            QStringList filters = {"*.yuv", "*.data", "*.raw", "*.png", "*.rgb", "*.bmp", "*.jpg"};
             QStringList files = dir.entryList(filters, QDir::Files | QDir::Readable, QDir::Name);
             if (!files.isEmpty()) {
                 folderPath = path;
@@ -827,7 +927,8 @@ void YUVviewer::dropEvent(QDropEvent *event) {
             }
         } else {
             QString suffix = fi.suffix().toLower();
-            if (suffix == "yuv" || suffix == "data" || suffix == "raw" || suffix == "png") {
+            if (suffix == "yuv" || suffix == "data" || suffix == "raw" || suffix == "png"
+                || suffix == "rgb" || suffix == "bmp" || suffix == "jpg") {
                 filelist.append(fi.absoluteFilePath());
                 if (folderPath.isEmpty()) folderPath = fi.absolutePath();
             }
@@ -835,6 +936,8 @@ void YUVviewer::dropEvent(QDropEvent *event) {
     }
 
     if (!filelist.isEmpty()) {
+        autoFillFromFilename(filelist[0]);
+        if (!updateConfig()) return;
         imgView(filelist, folderPath);
     }
 

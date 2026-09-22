@@ -25,6 +25,9 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QRegularExpression>
 #include "ImgViewer.h"
 #include "CompareViewer.h"
 #include "configFile.h"
@@ -76,10 +79,31 @@ private:
     void showParaErrMessageBox(void);
     bool updateConfig(void);
     bool imgView(QStringList openfile_list, const QString &folderpath);
+
+    struct DumpFormatPattern {
+        QString name;
+        QRegularExpression regex;
+        int widthGroup;
+        int heightGroup;
+        int formatGroup;
+    };
+    struct ParsedFileInfo {
+        int width = 0;
+        int height = 0;
+        QString format;
+        bool valid = false;
+    };
+    void loadDumpFormats();
+    ParsedFileInfo parseFilename(const QString &filename);
+    void autoFillFromFilename(const QString &filepath);
+
     Ui::YUVviewer *ui;
     ConfigFile *YUVviewerConfigFile;
     ImgViewer *imgViewer;
     CompareViewer *compareViewer;
+    QMap<QString, QString> formatCodeMap;
+    QMap<QString, QString> extensionDefaultMap;
+    QList<DumpFormatPattern> dumpPatterns;
     static const QList<QPair<QString, QStringList>> frameSizeTypeDict;
     static const QList<QPair<QString, QPair<QString, QList<YUVviewer::UICodePoint>>>> YUVFormat_pattern;
 };

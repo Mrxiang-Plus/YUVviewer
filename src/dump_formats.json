@@ -1,0 +1,52 @@
+{
+    "format_codes": {
+        "F3":   "RGB888",
+        "F35":  "NV12",
+        "F54":  "P010",
+        "F33":  "PNG"
+    },
+    "extension_defaults": {
+        "bmp": "PNG",
+        "jpg": "PNG",
+        "png": "PNG",
+        "yuv": "NV12"
+    },
+    "patterns": [
+        {
+            "name": "MIVI Node Dump",
+            "comment": "MIVI_{scene}_{ts}_{node}_{dir}_{port}_{frame}_{W}_{H}_{Stride}_{StrideH}_{Fcode}_{EV}.ext",
+            "regex": "(\\d+)_(\\d+)_(\\d+)_(\\d+)_(F\\d+)_EV",
+            "width_group": 1,
+            "height_group": 2,
+            "format_group": 5
+        },
+        {
+            "name": "Beauty Preview Dump",
+            "comment": "IMG_Beauty_Preview{W}_{H}_{ts}_frame{N}_{displayW}x{displayH}[_image_output].yuv",
+            "regex": "_frame\\d+_(\\d+)x(\\d+)",
+            "width_group": 1,
+            "height_group": 2
+        },
+        {
+            "name": "Generic WxH",
+            "comment": "Fallback: match any {W}x{H} in filename",
+            "regex": "(\\d{2,5})x(\\d{2,5})",
+            "width_group": 1,
+            "height_group": 2
+        }
+    ],
+    "sync_rules": [
+        {
+            "name": "Match by frame number",
+            "comment": "Extract frameNNNNN as sync key, covers beauty preview input/output pairing",
+            "key_regex": "frame(\\d+)",
+            "key_group": 1
+        },
+        {
+            "name": "Match by MIVI dimensions + format + EV",
+            "comment": "For MIVI node dumps: match by W_H_Fcode_EV",
+            "key_regex": "(\\d+_\\d+_F\\d+_EV[^.]+)",
+            "key_group": 1
+        }
+    ]
+}

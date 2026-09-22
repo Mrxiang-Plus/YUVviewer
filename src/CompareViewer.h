@@ -30,6 +30,9 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QRegularExpression>
 #include "ImgViewer.h"
 
 class CompareViewer : public QWidget {
@@ -74,10 +77,29 @@ private:
         QLabel *filenameLabel;
     };
 
+    struct DumpFormatPattern {
+        QString name;
+        QRegularExpression regex;
+        int widthGroup;
+        int heightGroup;
+        int formatGroup;
+    };
+    struct SyncRule {
+        QString name;
+        QRegularExpression keyRegex;
+        int keyGroup;
+    };
+
     QWidget* createPanel(PanelWidgets &pw);
     void loadFilesToPanel(int panelIndex, QStringList filelist, bool autoParse = true);
+    void loadDumpFormats();
     void parseFilename(const QString &filepath, QString &format, int &W, int &H);
     void matchFiles();
+
+    QMap<QString, QString> formatCodeMap;
+    QMap<QString, QString> extensionDefaultMap;
+    QList<DumpFormatPattern> dumpPatterns;
+    QList<SyncRule> syncRules;
 
     QWidget *parentWindow;
     QSplitter *splitter;
