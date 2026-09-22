@@ -56,6 +56,7 @@ CompareViewer::CompareViewer(QWidget *parentWindow, QWidget *parent) :
     fitBtn = new QPushButton(tr("Fit Window"));
     prevFrameBtn = new QPushButton(tr("< Previous Frame"));
     nextFrameBtn = new QPushButton(tr("Next Frame >"));
+    syncPlayBtn = new QPushButton(tr("▶ Play"));
     toolbarLayout->addWidget(syncZoomPanCheck);
     toolbarLayout->addWidget(frameSyncCheck);
     toolbarLayout->addSpacing(10);
@@ -63,6 +64,7 @@ CompareViewer::CompareViewer(QWidget *parentWindow, QWidget *parent) :
     toolbarLayout->addWidget(rotateRightBtn);
     toolbarLayout->addWidget(fitBtn);
     toolbarLayout->addStretch();
+    toolbarLayout->addWidget(syncPlayBtn);
     toolbarLayout->addWidget(prevFrameBtn);
     toolbarLayout->addWidget(nextFrameBtn);
 
@@ -104,6 +106,11 @@ CompareViewer::CompareViewer(QWidget *parentWindow, QWidget *parent) :
     connect(rotateLeftBtn, &QPushButton::clicked, this, &CompareViewer::onRotateLeft);
     connect(rotateRightBtn, &QPushButton::clicked, this, &CompareViewer::onRotateRight);
     connect(fitBtn, &QPushButton::clicked, this, &CompareViewer::onFitWindow);
+    connect(syncPlayBtn, &QPushButton::clicked, this, &CompareViewer::onSyncPlay);
+
+    syncPlayTimer = new QTimer(this);
+    connect(syncPlayTimer, &QTimer::timeout, this, &CompareViewer::onSyncPlayTimer);
+
     loadDumpFormats();
 }
 
@@ -371,9 +378,7 @@ void CompareViewer::loadFilesToPanel(int panelIndex, QStringList filelist, bool 
     // 连接信号
     if (panelIndex == 0) {
         connect(viewer, &ImgViewer::pixelInfoChanged, this, &CompareViewer::onPixelInfoA);
-        connect(viewer, &ImgViewer::currentFileChanged, this, [this](const QString &name, int frame) {
-            pwA.filenameLabel->setText(name + " - " + tr("Frame") + " " + QString::number(frame));
-        });
+        connect(viewer, &ImgViewer::currentFileChanged, this, &CompareViewer::onFileChangedA);
         connect(viewer, &ImgViewer::viewChanged, this, [this](QPoint p, QImage img) {
             if (syncZoomPanCheck->isChecked() && !syncing && imgViewerB) {
                 syncing = true;
@@ -404,6 +409,9 @@ void CompareViewer::loadFilesToPanel(int panelIndex, QStringList filelist, bool 
 
     viewer->show();
     viewer->fitToWindow();
+
+    if (panelIndex == 0 && imgViewerB) buildSyncMap();
+    if (panelIndex == 1 && imgViewerA) buildSyncMap();
 }
 
 // ===== 文件打开 =====
@@ -489,12 +497,14 @@ void CompareViewer::onFrameSyncToggled(bool checked) {
 
 void CompareViewer::onPreviousFrame() {
     if (imgViewerA) imgViewerA->previousImg();
-    if (frameSyncCheck->isChecked() && imgViewerB) imgViewerB->previousImg();
+    if (frameSyncCheck->isChecked() && imgViewerB && syncMapAtoB.isEmpty())
+        imgViewerB->previousImg();
 }
 
 void CompareViewer::onNextFrame() {
     if (imgViewerA) imgViewerA->nextImg();
-    if (frameSyncCheck->isChecked() && imgViewerB) imgViewerB->nextImg();
+    if (frameSyncCheck->isChecked() && imgViewerB && syncMapAtoB.isEmpty())
+        imgViewerB->nextImg();
 }
 
 void CompareViewer::onRotateLeft() {
@@ -520,6 +530,73 @@ void CompareViewer::onPixelInfoA(int x, int y, int r, int g, int b) {
 void CompareViewer::onPixelInfoB(int x, int y, int r, int g, int b) {
     pixelInfoLabel->setText(
         QString("[B] x:%1 y:%2 R:%3 G:%4 B:%5").arg(x).arg(y).arg(r).arg(g).arg(b));
+}
+
+void CompareViewer::buildSyncMap() {
+    syncMapAtoB.clear();
+    if (!imgViewerA || !imgViewerB) return;
+    if (loadedFilesA.isEmpty() || loadedFilesB.isEmpty()) return;
+
+    for (const SyncRule &rule : syncRules) {
+        QMap<QString, int> keysA, keysB;
+        for (int i = 0; i < loadedFilesA.size(); i++) {
+            QRegularExpressionMatch m = rule.keyRegex.match(QFileInfo(loadedFilesA[i]).fileName());
+            if (m.hasMatch()) keysA[m.captured(rule.keyGroup)] = i;
+        }
+        for (int i = 0; i < loadedFilesB.size(); i++) {
+            QRegularExpressionMatch m = rule.keyRegex.match(QFileInfo(loadedFilesB[i]).fileName());
+            if (m.hasMatch()) keysB[m.captured(rule.keyGroup)] = i;
+        }
+        for (auto it = keysA.begin(); it != keysA.end(); ++it) {
+            if (keysB.contains(it.key()))
+                syncMapAtoB[it.value()] = keysB[it.key()];
+        }
+        if (!syncMapAtoB.isEmpty()) break;
+    }
+}
+
+void CompareViewer::syncBFromA(int globalIndexA) {
+    if (!imgViewerB || syncMapAtoB.isEmpty()) return;
+    if (!frameSyncCheck->isChecked()) return;
+    if (syncMapAtoB.contains(globalIndexA)) {
+        imgViewerB->goToGlobalIndex(syncMapAtoB[globalIndexA]);
+    }
+}
+
+void CompareViewer::onFileChangedA(const QString &name, int frameIndex) {
+    pwA.filenameLabel->setText(name + " - " + tr("Frame") + " " + QString::number(frameIndex));
+    if (imgViewerA && !syncMapAtoB.isEmpty())
+        syncBFromA(imgViewerA->getCurrentGlobalIndex());
+}
+
+void CompareViewer::onSyncPlay() {
+    if (isSyncPlaying) {
+        syncPlayTimer->stop();
+        isSyncPlaying = false;
+        syncPlayBtn->setText(tr("▶ Play"));
+    } else {
+        if (!imgViewerA) return;
+        int fps = pwA.endFrameEdit->text().toInt();
+        if (fps <= 0) fps = 30;
+        syncPlayTimer->start(1000 / fps);
+        isSyncPlaying = true;
+        syncPlayBtn->setText(tr("⏸ Pause"));
+    }
+}
+
+void CompareViewer::onSyncPlayTimer() {
+    if (!imgViewerA) return;
+    int cur = imgViewerA->getCurrentGlobalIndex();
+    int total = imgViewerA->getTotalFrameCount();
+    if (cur >= total - 1) {
+        syncPlayTimer->stop();
+        isSyncPlaying = false;
+        syncPlayBtn->setText(tr("▶ Play"));
+        return;
+    }
+    imgViewerA->nextImg();
+    if (frameSyncCheck->isChecked() && imgViewerB && syncMapAtoB.isEmpty())
+        imgViewerB->nextImg();
 }
 
 void CompareViewer::closeEvent(QCloseEvent *event) {

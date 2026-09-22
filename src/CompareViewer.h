@@ -33,6 +33,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QRegularExpression>
+#include <QTimer>
 #include "ImgViewer.h"
 
 class CompareViewer : public QWidget {
@@ -63,6 +64,9 @@ private slots:
     void onFitWindow();
     void onPixelInfoA(int x, int y, int r, int g, int b);
     void onPixelInfoB(int x, int y, int r, int g, int b);
+    void onSyncPlay();
+    void onSyncPlayTimer();
+    void onFileChangedA(const QString &filename, int frameIndex);
 
 private:
     struct PanelWidgets {
@@ -95,11 +99,14 @@ private:
     void loadDumpFormats();
     void parseFilename(const QString &filepath, QString &format, int &W, int &H);
     void matchFiles();
+    void buildSyncMap();
+    void syncBFromA(int globalIndexA);
 
     QMap<QString, QString> formatCodeMap;
     QMap<QString, QString> extensionDefaultMap;
     QList<DumpFormatPattern> dumpPatterns;
     QList<SyncRule> syncRules;
+    QMap<int, int> syncMapAtoB;
 
     QWidget *parentWindow;
     QSplitter *splitter;
@@ -117,6 +124,7 @@ private:
     QPushButton *rotateLeftBtn;
     QPushButton *rotateRightBtn;
     QPushButton *fitBtn;
+    QPushButton *syncPlayBtn;
 
     // 同步控制
     QCheckBox *syncZoomPanCheck;
@@ -124,6 +132,8 @@ private:
     QPushButton *prevFrameBtn;
     QPushButton *nextFrameBtn;
     QLabel *pixelInfoLabel;
+    QTimer *syncPlayTimer;
+    bool isSyncPlaying = false;
 
     bool syncing;
     QStringList formatNames;
