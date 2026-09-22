@@ -702,6 +702,22 @@ bool YUVviewer::imgView(QStringList openfile_list, const QString &folderpath) {
     int endFrame = ui->endFrame_LineEdit->text().toInt();
     int frameSize_Width = ui->frameSize_Width_LineEdit->text().toInt();
     int frameSize_Height = ui->frameSize_Height_LineEdit->text().toInt();
+
+    if (YUVviewerConfigFile->config_dict.YUVFormat != "PNG" && !openfile_list.empty()) {
+        qint64 fileSize = QFileInfo(openfile_list.first()).size();
+        qint64 expected = ImageDecoder::frameSizeBytes(
+            YUVviewerConfigFile->config_dict.YUVFormat, frameSize_Width, frameSize_Height);
+        if (expected > 0 && fileSize < expected) {
+            QMessageBox::critical(this, "Error",
+                QString("File size (%1) < expected frame size (%2) for %3 %4x%5.\nPlease check dimensions and format.")
+                    .arg(fileSize).arg(expected)
+                    .arg(YUVviewerConfigFile->config_dict.YUVFormat)
+                    .arg(frameSize_Width).arg(frameSize_Height), QMessageBox::Ok);
+            this->show();
+            return false;
+        }
+    }
+
     #if 1
     // 多线程
     bool isSuccess = imgViewer->setFileList_multithreading(openfile_list,

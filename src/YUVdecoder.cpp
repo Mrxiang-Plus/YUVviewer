@@ -89,6 +89,38 @@ QMap<QString, ImageDecoder::yuvdecoder_t> ImageDecoder::yuvdecoder_map = {
     {"PNG",                     ImageDecoder::png},
 };
 
+qint64 ImageDecoder::frameSizeBytes(const QString &format, int W, int H) {
+    if (format == "YV12" || format == "YU12/I420" || format == "NV21" || format == "NV12")
+        return (qint64)W * H * 3 / 2;
+    if (format == "P010")
+        return (qint64)W * H * 3;
+    if (format == "YUY2/YUYV" || format == "YVYU" || format == "UYVY")
+        return (qint64)W * H * 2;
+    if (format == "4:4:4" || format == "RGB888")
+        return (qint64)W * H * 3;
+    if (format == "Y8")
+        return (qint64)W * H;
+    if (format.startsWith("RGB565") || format.startsWith("BGR565"))
+        return (qint64)W * H * 2;
+    if (format.startsWith("Bayer") && format.contains("RAW16"))
+        return (qint64)W * H * 2;
+    if (format.startsWith("Bayer") && format.contains("RAW12") && format.contains("COMPACT"))
+        return (qint64)W * H * 3 / 2;
+    if (format.startsWith("Bayer") && format.contains("RAW10") && format.contains("COMPACT"))
+        return (qint64)W * H * 5 / 4;
+    if (format.startsWith("Bayer") && (format.contains("ALIGN16") || format.contains("RAW16")))
+        return (qint64)W * H * 2;
+    if (format.startsWith("Bayer") && format.contains("RAW10") && format.contains("CSI"))
+        return (qint64)W * H * 5 / 4;
+    if (format.startsWith("Bayer") && format.contains("RAW12") && format.contains("CSI"))
+        return (qint64)W * H * 3 / 2;
+    if (format.startsWith("Bayer"))
+        return (qint64)W * H;
+    if (format == "PNG")
+        return 0;
+    return (qint64)W * H;
+}
+
 QList<cv::Mat*> ImageDecoder::yv12(const QString &yuvfilename,int W, int H, int startframe, int totalframe) {
     QList<cv::Mat*> rgbImglist;
     cv::Mat yuvImg;

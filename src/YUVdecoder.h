@@ -51,6 +51,7 @@ public:
     static QList<cv::Mat*> y8(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
     static QList<cv::Mat*> bayer(const QString &yuvfilename,int W, int H, int startframe, int totalframe,int code,int bit,BayerFormat type);
     static QList<cv::Mat*> png(const QString &yuvfilename,int W, int H, int startframe, int totalframe);
+    static qint64 frameSizeBytes(const QString &format, int W, int H);
     static QMap<QString, yuvdecoder_t> yuvdecoder_map;
 };
 

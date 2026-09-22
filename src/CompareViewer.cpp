@@ -307,6 +307,21 @@ void CompareViewer::loadFilesToPanel(int panelIndex, QStringList filelist, bool 
     int endFrame = pw.endFrameEdit->text().toInt();
     QString format = pw.formatCombo->currentText();
 
+    if (W <= 0 || H <= 0) {
+        QMessageBox::critical(this, "Error", tr("Width and Height must be positive"), QMessageBox::Ok);
+        return;
+    }
+    if (format != "PNG") {
+        qint64 fileSize = QFileInfo(filelist.first()).size();
+        qint64 expected = ImageDecoder::frameSizeBytes(format, W, H);
+        if (expected > 0 && fileSize < expected) {
+            QMessageBox::critical(this, "Error",
+                tr("File size (%1) < expected frame size (%2) for %3 %4x%5.\nPlease check dimensions and format.")
+                    .arg(fileSize).arg(expected).arg(format).arg(W).arg(H), QMessageBox::Ok);
+            return;
+        }
+    }
+
     // 更新文件名标签（显示文件数量）
     pw.filenameLabel->setText(tr("%1 file(s) loaded").arg(filelist.size()));
     pw.filenameLabel->show();
