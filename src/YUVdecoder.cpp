@@ -29,6 +29,12 @@
 #include <opencv2/imgproc/types_c.h>
 #include "YUVdecoder.h"
 
+#define SAFE_READ(stream, buf, len) \
+    do { \
+        int _need = (len); \
+        int _got = (stream).readRawData((char*)(buf), _need); \
+        if (_got < _need) { delete rgbImg; goto cleanup; } \
+    } while(0)
 
 QMap<QString, ImageDecoder::yuvdecoder_t> ImageDecoder::yuvdecoder_map = {
     {"YV12",            ImageDecoder::yv12},
@@ -92,14 +98,14 @@ QList<cv::Mat*> ImageDecoder::yv12(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && totalframe != 0) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H*3/2, W, CV_8UC1);
-        out.readRawData((char *)yuvImg.data,W*H*3/2);
+        SAFE_READ(out, yuvImg.data, W*H*3/2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_YV12);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -114,14 +120,14 @@ QList<cv::Mat*> ImageDecoder::i420(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H*3/2, W, CV_8UC1);
-        out.readRawData((char *)yuvImg.data,W*H*3/2);
+        SAFE_READ(out, yuvImg.data, W*H*3/2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_I420);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -136,14 +142,14 @@ QList<cv::Mat*> ImageDecoder::nv21(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H*3/2, W, CV_8UC1);
-        out.readRawData((char *)yuvImg.data,W*H*3/2);
+        SAFE_READ(out, yuvImg.data, W*H*3/2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_NV12); // NV21
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -158,14 +164,14 @@ QList<cv::Mat*> ImageDecoder::nv12(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H*3/2, W, CV_8UC1);
-        out.readRawData((char *)yuvImg.data,W*H*3/2);
+        SAFE_READ(out, yuvImg.data, W*H*3/2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_NV21); // NV12
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -180,14 +186,14 @@ QList<cv::Mat*> ImageDecoder::yuy2(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_YUY2);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -202,14 +208,14 @@ QList<cv::Mat*> ImageDecoder::yvyu(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_YVYU);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -224,14 +230,14 @@ QList<cv::Mat*> ImageDecoder::uyvy(const QString &yuvfilename,int W, int H, int 
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB_UYVY);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -246,14 +252,14 @@ QList<cv::Mat*> ImageDecoder::yuv444(const QString &yuvfilename,int W, int H, in
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC3);
-        out.readRawData((char *)yuvImg.data,W*H*3);
+        SAFE_READ(out, yuvImg.data, W*H*3);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_YUV2RGB);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -268,7 +274,7 @@ QList<cv::Mat*> ImageDecoder::rgb565_little_endian(const QString &yuvfilename,in
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         cv::Mat bgrImg;
         cvtColor(yuvImg, bgrImg, cv::COLOR_BGR5652RGB);
         cvtColor(bgrImg, *rgbImg, cv::COLOR_BGR2RGB);
@@ -276,8 +282,8 @@ QList<cv::Mat*> ImageDecoder::rgb565_little_endian(const QString &yuvfilename,in
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -292,7 +298,7 @@ QList<cv::Mat*> ImageDecoder::rgb565_big_endian(const QString &yuvfilename,int W
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         short *raw_buff = (short *)yuvImg.data;
         for(int i=0;i < W*H;i++)
         {
@@ -305,8 +311,8 @@ QList<cv::Mat*> ImageDecoder::rgb565_big_endian(const QString &yuvfilename,int W
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -321,14 +327,14 @@ QList<cv::Mat*> ImageDecoder::bgr565_little_endian(const QString &yuvfilename,in
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_BGR5652RGB);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -343,7 +349,7 @@ QList<cv::Mat*> ImageDecoder::bgr565_big_endian(const QString &yuvfilename,int W
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC2);
-        out.readRawData((char *)yuvImg.data,W*H*2);
+        SAFE_READ(out, yuvImg.data, W*H*2);
         short *raw_buff = (short *)yuvImg.data;
         for(int i=0;i < W*H;i++)
         {
@@ -354,8 +360,8 @@ QList<cv::Mat*> ImageDecoder::bgr565_big_endian(const QString &yuvfilename,int W
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -370,14 +376,14 @@ QList<cv::Mat*> ImageDecoder::rgb888(const QString &yuvfilename,int W, int H, in
     while((!out.atEnd()) && (totalframe != 0)) {
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8UC3);
-        out.readRawData((char *)yuvImg.data,W*H*3);
+        SAFE_READ(out, yuvImg.data, W*H*3);
         cvtColor(yuvImg, *rgbImg, cv::COLOR_BGR2RGB);
         totalframe--;
         rgbImglist.append(rgbImg);
     }
 
+cleanup:
     file.close();
-
     return rgbImglist;
 }
 
@@ -418,16 +424,17 @@ QList<cv::Mat*> ImageDecoder::bayer(const QString &yuvfilename,int W, int H, int
         cv::Mat *rgbImg = new cv::Mat;
         yuvImg.create(H, W, CV_8U);
         uint8_t * dest = (uint8_t *)yuvImg.data;
+        int bytesRead = out.readRawData((char *)temp, fsize);
+        if (bytesRead < (int)fsize) { delete rgbImg; break; }
         switch (bit) {
         case 8: {
-            out.readRawData((char *)temp,fsize);
             for(int i=0;i<W*H;i++) {
                 dest[i] = ((uint8_t)temp[i]);
             }
             break;
         }
         case 10: {
-            out.readRawData((char *)temp,fsize);
+
             if(type == compact) {
                 for(int i=0,j=0;i<W*H*5/4;i+=5) {
                     uint16_t piex[5] = {(uint16_t)temp[i],(uint16_t)temp[i+1],(uint16_t)temp[i+2],(uint16_t)temp[i+3],(uint16_t)temp[i+4]};
@@ -456,7 +463,7 @@ QList<cv::Mat*> ImageDecoder::bayer(const QString &yuvfilename,int W, int H, int
             break;
         }
         case 12: {
-            out.readRawData((char *)temp,fsize);
+
             if(compact) {
                 for(int i=0,j=0;i<W*H*3/2;i+=3) {
                     uint16_t piex[3] = {(uint16_t)temp[i],(uint16_t)temp[i+1],(uint16_t)temp[i+2]};
@@ -481,7 +488,7 @@ QList<cv::Mat*> ImageDecoder::bayer(const QString &yuvfilename,int W, int H, int
             break;
         }
         case 16: {
-            out.readRawData((char *)temp,fsize);
+
             for(int i=0,j=0;i<W*H*2;i+=2) {
                 uint16_t piex[2] = {(uint16_t)temp[i],(uint16_t)temp[i+1]};
                 dest[j] = (uint8_t)(((piex[1]<<8) | (piex[0]&0xff))/256);
