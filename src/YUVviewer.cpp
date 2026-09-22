@@ -215,7 +215,8 @@ YUVviewer::YUVviewer(QWidget *parent) :
     this->setWindowTitle("YUVviewer " + VERSION);
     QRect screen = QGuiApplication::screenAt(this->mapToGlobal(QPoint(this->width()/2,0)))->geometry();
     QRect size = this->geometry();
-    this->move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2);
+    this->move(screen.x() + (screen.width() - size.width()) / 2,
+               screen.y() + (screen.height() - size.height()) / 2);
 
     ui->frameSizeType_ComboBox->setStyleSheet("combobox-popup: 0;");
     ui->YUVFormat_ComboBox->setStyleSheet("combobox-popup: 0;");
@@ -854,7 +855,8 @@ bool YUVviewer::imgView(QStringList openfile_list, const QString &folderpath) {
     }
     QRect screen = QGuiApplication::screenAt(this->mapToGlobal(QPoint(this->width()/2,0)))->geometry();
     QRect size = imgViewer->geometry();
-    imgViewer->move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2);
+    imgViewer->move(screen.x() + (screen.width() - size.width()) / 2,
+                    screen.y() + (screen.height() - size.height()) / 2);
     this->hide();
     imgViewer->show();
 
@@ -954,8 +956,8 @@ void YUVviewer::compareFiles() {
     compareViewer = new CompareViewer(this);
     QRect screen = QGuiApplication::screenAt(this->mapToGlobal(QPoint(this->width()/2,0)))->geometry();
     compareViewer->resize(screen.width() * 3 / 4, screen.height() * 3 / 4);
-    compareViewer->move((screen.width() - compareViewer->width()) / 2,
-                        (screen.height() - compareViewer->height()) / 2);
+    compareViewer->move(screen.x() + (screen.width() - compareViewer->width()) / 2,
+                        screen.y() + (screen.height() - compareViewer->height()) / 2);
     this->hide();
     compareViewer->show();
 }
